@@ -24,6 +24,12 @@ import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.text.DefaultCaret;
 
+import org.json.JSONObject;
+
+import messageTemplate.ParseMessages;
+import messageTemplate.TemplateMessages;
+import server.ServerClient;
+
 public class ClientInstance extends JFrame implements Runnable{
 
 	private static final long serialVersionUID = 1L;
@@ -42,22 +48,25 @@ public class ClientInstance extends JFrame implements Runnable{
 	private JMenuItem mntmExit;
 
 	private OnlineUsers users;
+	
+	private ParseMessages JSON;
+	private TemplateMessages Template;
 	//Kjo do te ndryshoje kur ndryshon tabe per ti folur njerezve privatisht kur je ne room-in global do t jet default =-1
-	private int currentTabIdUser=1;
+	private int currentTabIdUser=-1;
 
-	public ClientInstance(String name, String address, int port,int id) {
-		setTitle("Cherno Chat Client");
-		client = new Client(name, address, port,id);
-		boolean connect = client.openConnection(address);
+	public ClientInstance(Client client) {
+		setTitle("FTI-HUB");
+		this.JSON=new ParseMessages();
+		this.Template=new TemplateMessages();
+		boolean connect = client.openConnection();
 		if (!connect) {
 			System.err.println("Connection failed!");
 			console("Connection failed!");
 		}
 		createWindow();
-		console("Attempting a connection to " + address + ":" + port + ", user: " + name);
-		String connection = "/c/" + name+" "+client.getId()+ "/e/";
-		client.send(connection.getBytes());
-		users = new OnlineUsers();
+		console("Attempting a connection to " + client.getAddress() + ":" + client.getPort() + ", user: " + client.getName());
+
+		this.users = new OnlineUsers();
 		running = true;
 		run = new Thread(this, "Running");
 		run.start();
@@ -151,8 +160,8 @@ public class ClientInstance extends JFrame implements Runnable{
 
 		addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) {
-				String disconnect = "/d/" + client.getId() + "/e/";
-				send(disconnect, false);
+				String disconnect = Template.disconnect(client.getId());
+				send(disconnect);
 				running = false;
 				client.close();
 			}
@@ -165,9 +174,11 @@ public class ClientInstance extends JFrame implements Runnable{
 
 	public void routeMessage(String text) {
 		if(currentTabIdUser!=-1) { 	//For private chat
-			send("/p/" + currentTabIdUser + "/s/"+ client.getId() + "/m/" + text + "/e/", true, true);
+			String privateMessage=Template.privateMessage(currentTabIdUser, client.getId(), text);
+			send(privateMessage);
 		}else {
-			send(txtMessage.getText(), true);
+			String globalMesssage=Template.message(text);
+			send(globalMesssage);
 		}
 	}
 	
@@ -175,45 +186,57 @@ public class ClientInstance extends JFrame implements Runnable{
 		listen();
 	}
 
-	private void send(String message,boolean text,boolean isPrivate) {
+	private void send(String message) {
 		if (message.equals("")) return;
-		if (text) {
-			if(!isPrivate) {
-			message = client.getName() + ": " + message;
-			message = "/m/" + message + "/e/";
-			}
-			txtMessage.setText("");
-		}
+		
 		client.send(message.getBytes());
 	}
 	
-	private void send(String message, boolean text) {
-		send(message,text,false);
-	}
-
 	public void listen() {
 		listen = new Thread("Listen") {
 			public void run() {
 				while (running) {
-					String message = client.receive();
-					if (message.startsWith("/c/")) {
-						console("Successfully connected to server! ID: " + client.getId());
-					} else if (message.startsWith("/m/")) {
-						String text = message.substring(3);
-						text = text.split("/e/")[0];
-						console(text);
-					} else if (message.startsWith("/i/")) {
-						String text = "/i/" + client.getId() + "/e/";
-						send(text, false);
-					} else if (message.startsWith("/u/")) {
-						String[] u = message.split("/u/|/n/|/e/");
-						users.update(Arrays.copyOfRange(u, 1, u.length - 1));
-					} else if (message.startsWith("/p/")) {
-						String[] strSplit=message.split("/p/|/m/");
-				        int idOfSender=Integer.parseInt(strSplit[1]);
-				        String privateMessage=strSplit[2].split("/e/")[0];
-				        console("PrivateMessage from "+idOfSender+" to "+client.getName()+": "+privateMessage);
-					}
+					String string = client.receive();
+					switch(JSON.getTypeOfMessage(string)) {
+					case "global-message":
+						JSONObject message=JSON.parse(string);
+						console(message.getString("message"));
+						break;
+					case "ping":
+						String text=Template.responsePingClient(client.getId());
+						send(text);
+						break;
+					case "private-message":
+						JSONObject privateMessage=JSON.parse(string);
+					    int idOfSender=privateMessage.getInt("idOfSender");
+					    String pm = privateMessage.getString("privateMessage");
+					    console("PrivateMessage from "+idOfSender+" to "+client.getName()+": "+pm);
+						break;
+					default:
+						System.out.println(string);
+						break;
+					}	
+					
+					//TODO:PER ONLINE USERS
+					
+//					if (string.startsWith("/c/")) {
+//						console("Successfully connected to server! ID: " + client.getId());
+//					} else if (string.startsWith("/m/")) {
+//						String text = string.substring(3);
+//						text = text.split("/e/")[0];
+//						console(text);
+//					} else if (string.startsWith("/i/")) {
+//						String text = "/i/" + client.getId() + "/e/";
+//						send(text, false);
+//					} else if (string.startsWith("/u/")) {
+//						String[] u = string.split("/u/|/n/|/e/");
+//						users.update(Arrays.copyOfRange(u, 1, u.length - 1));
+//					} else if (string.startsWith("/p/")) {
+//						String[] strSplit=string.split("/p/|/m/");
+//				        int idOfSender=Integer.parseInt(strSplit[1]);
+//				        String privateMessage=strSplit[2].split("/e/")[0];
+//				        console("PrivateMessage from "+idOfSender+" to "+client.getName()+": "+privateMessage);
+//					}
 				}
 			}
 		};

@@ -26,6 +26,16 @@ public class Client {
 		this.id=id;
 	}
 
+	public Client(String name, String address, int port) {
+		this.name = name;
+		this.address = address;
+		this.port = port;
+	}
+
+	public void setId(int id) {
+		this.id=id;
+	}
+	
 	public String getName() {
 		return name;
 	}
@@ -38,10 +48,10 @@ public class Client {
 		return port;
 	}
 
-	public boolean openConnection(String address) {
+	public boolean openConnection() {
 		try {
 			socket = new DatagramSocket();
-			ip = InetAddress.getByName(address);
+			ip = InetAddress.getByName(this.address);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 			return false;

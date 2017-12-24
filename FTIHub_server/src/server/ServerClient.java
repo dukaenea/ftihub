@@ -9,13 +9,15 @@ public class ServerClient {
 	public int port;
 	private final int ID;
 	public int attempt = 0;
-
-	public ServerClient(String name, InetAddress address, int port, final int ID) {
-		this.name = name;
-		this.address = address;
-		this.port = port;
-		this.ID = ID;
+	boolean online;
+	public String password;
+	
+	public ServerClient(String name,String password,int id) {
+		this.name=name;
+		this.ID=id;
+		this.password=password;
 	}
+	
 	
 	public int getID() {
 		return ID;

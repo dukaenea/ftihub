@@ -1,14 +1,8 @@
 package client;
 
-
 import java.awt.EventQueue;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -18,7 +12,10 @@ import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
-import database.DBConnection;
+import org.json.JSONObject;
+
+import messageTemplate.ParseMessages;
+import messageTemplate.TemplateMessages;
 
 public class Login extends JFrame {
 	private static final long serialVersionUID = 1L;
@@ -31,6 +28,9 @@ public class Login extends JFrame {
 	private JLabel lblPort;
 	private JLabel lblAddressDesc;
 	private JLabel lblPortDesc;
+
+	private final String hostAddress = "localhost";
+	private final int hostListenport = 8193;
 
 	public Login() {
 		try {
@@ -87,10 +87,10 @@ public class Login extends JFrame {
 		btnLogin.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				String name = txtName.getText();
-				String address = txtAddress.getText();
-				int port = Integer.parseInt(txtPort.getText());
+				String password = txtAddress.getText();
+				// int port = Integer.parseInt(txtPort.getText());
 				try {
-					login(name, address, port);
+					login(name, password);
 				} catch (Exception e1) {
 					e1.printStackTrace();
 				}
@@ -100,59 +100,48 @@ public class Login extends JFrame {
 		contentPane.add(btnLogin);
 	}
 
-	private void login(String name, String address, int port) throws Exception {
-		int userId=validateCredentials("skender","a");
-		String localAddress="";
-		 try {
-	          InetAddress ipAddr = InetAddress.getLocalHost();
-	          localAddress=ipAddr.getHostAddress();
-	      } catch (UnknownHostException ex) {
-	          ex.printStackTrace();
-	      }
-		
-		if(userId!=-1 && localAddress!="") {
-			dispose();
-			new ClientInstance(name, address, port,userId);
-		}else {
-			//Print wrong credentials or send to sign up Tab
+	private void login(String username, String password) throws Exception {
+		ParseMessages JSON = new ParseMessages();
+		TemplateMessages Template = new TemplateMessages();
+		Client client = new Client(username, hostAddress, hostListenport);
+
+		boolean connect = client.openConnection();
+		if (!connect) {
+			// Show error can't connect to host/ERROR
+			System.err.println("Connection failed!");
+		} else {
+			String loginCredentials = Template.loginCredentials(username, password);
+
+			client.send(loginCredentials.getBytes());
+
+			new Thread() {
+				public void run() {
+					boolean succeded = false;
+					while (!succeded) {
+						String message = client.receive();
+
+						switch (JSON.getTypeOfMessage(message)) {
+
+						case "login-success":
+							System.out.println("Login succeded!");
+							JSONObject parsedMessage = JSON.parse(message);
+							succeded = true;
+							dispose();
+							client.setId(parsedMessage.getInt("id"));
+							new ClientInstance(client);
+							break;
+						case "login-fail":
+							// Print wrong credentials or send to sign up Tab
+							dispose();
+							System.out.println("Wrong username or password!");
+							break;
+						}
+					}
+
+				}
+			}.start();
 		}
 	}
-	
-	private int validateCredentials(String username,String password) throws Exception{
-		try(
-				Connection con=DBConnection.getConnection();
-				
-				PreparedStatement ps=con.prepareStatement(
-						"select id from t_users where username=? and password=?"
-						,ResultSet.TYPE_SCROLL_INSENSITIVE
-						,ResultSet.CONCUR_READ_ONLY);
-
-				) 
-				{
-					ps.setString(1, username);
-					ps.setString(2, password);
-					 int id=0;
-					 int rowCount=0;
-					 try (ResultSet rs = ps.executeQuery()) {
-						 
-						
-						 while(rs.next()) {
-						  
-						  rowCount++;
-					      id = rs.getInt("id");
-					      
-						 }
-						 
-					     if(rowCount==1) {
-					    	 return id;
-					     }
-					         
-					    } // try
-					} // try
-		
-		return -1;
-	}
-
 
 	public static void main(String[] args) {
 		EventQueue.invokeLater(new Runnable() {
