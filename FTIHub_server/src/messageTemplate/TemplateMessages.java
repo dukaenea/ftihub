@@ -3,9 +3,12 @@ package messageTemplate;
 import org.json.JSONObject;
 
 public class TemplateMessages {
+	public String nullify(String string) {
+		return string+"/e/";
+	}
 
 	public String stringify(String string) {
-		return new JSONObject(string).toString();
+		return nullify(new JSONObject(string).toString());
 	}
 	
 	public String type(String type) {
@@ -61,5 +64,10 @@ public class TemplateMessages {
 	}
 	public String onlineUsers() {
 		return "";
+	}
+	public String serverMessage(String text) {
+		return stringify(type("server-message")+
+				",\"message\": \""
+				+text+"\"}");
 	}
 }

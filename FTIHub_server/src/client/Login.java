@@ -12,11 +12,6 @@ import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
-import org.json.JSONObject;
-
-import messageTemplate.ParseMessages;
-import messageTemplate.TemplateMessages;
-
 public class Login extends JFrame {
 	private static final long serialVersionUID = 1L;
 
@@ -101,46 +96,8 @@ public class Login extends JFrame {
 	}
 
 	private void login(String username, String password) throws Exception {
-		ParseMessages JSON = new ParseMessages();
-		TemplateMessages Template = new TemplateMessages();
-		Client client = new Client(username, hostAddress, hostListenport);
 
-		boolean connect = client.openConnection();
-		if (!connect) {
-			// Show error can't connect to host/ERROR
-			System.err.println("Connection failed!");
-		} else {
-			String loginCredentials = Template.loginCredentials(username, password);
-
-			client.send(loginCredentials.getBytes());
-
-			new Thread() {
-				public void run() {
-					boolean succeded = false;
-					while (!succeded) {
-						String message = client.receive();
-
-						switch (JSON.getTypeOfMessage(message)) {
-
-						case "login-success":
-							System.out.println("Login succeded!");
-							JSONObject parsedMessage = JSON.parse(message);
-							succeded = true;
-							dispose();
-							client.setId(parsedMessage.getInt("id"));
-							new ClientInstance(client);
-							break;
-						case "login-fail":
-							// Print wrong credentials or send to sign up Tab
-							dispose();
-							System.out.println("Wrong username or password!");
-							break;
-						}
-					}
-
-				}
-			}.start();
-		}
+		new ClientInstance(new Client(username,password, hostAddress, hostListenport));
 	}
 
 	public static void main(String[] args) {

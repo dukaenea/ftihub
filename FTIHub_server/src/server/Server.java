@@ -95,7 +95,8 @@ public class Server implements Runnable{
 			System.out.println(allClients.size());
 			String text = scanner.nextLine();
 			if (!text.startsWith("/")) {
-				sendToAll("/m/Server: " + text + "/e/");
+				String serverMessage=Template.serverMessage(text);
+				sendToAll(serverMessage);
 				continue;
 			}
 			text = text.substring(1);
@@ -169,7 +170,7 @@ public class Server implements Runnable{
 				while (running) {
 					String ping=Template.ping();
 					sendToAll(ping);
-					sendStatus();
+					//sendStatus();
 					try {
 						Thread.sleep(2000);
 					} catch (InterruptedException e) {
@@ -302,15 +303,12 @@ public class Server implements Runnable{
 
 
 	private void process(DatagramPacket packet) {
-		String string = new String(packet.getData());
+		String string = new String(packet.getData()).split("/e/")[0];
 		if (raw) System.out.println(string);
 		switch(JSON.getTypeOfMessage(string)) {
 		case "login":
 			JSONObject loginCredetials=JSON.parse(string);
 			System.out.println(string);
-			printMap();
-			System.out.println(loginCredetials.getString("username"));
-			System.out.println(loginCredetials.getString("password"));
 			boolean success=false;
 			for (ServerClient c : allClients.values()) {
 				
@@ -329,8 +327,7 @@ public class Server implements Runnable{
 				send(Template.loginFail().getBytes(), packet.getAddress(), packet.getPort());	
 			break;
 		case "global-message":
-			JSONObject message=JSON.parse(string);
-			sendToAll(message.getString("message"));
+			sendToAll(string);
 			break;
 		case "disconnect":
 			JSONObject disconnect=JSON.parse(string);

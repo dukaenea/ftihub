@@ -9,7 +9,6 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.Arrays;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -28,7 +27,7 @@ import org.json.JSONObject;
 
 import messageTemplate.ParseMessages;
 import messageTemplate.TemplateMessages;
-import server.ServerClient;
+
 
 public class ClientInstance extends JFrame implements Runnable{
 
@@ -52,21 +51,19 @@ public class ClientInstance extends JFrame implements Runnable{
 	private ParseMessages JSON;
 	private TemplateMessages Template;
 	//Kjo do te ndryshoje kur ndryshon tabe per ti folur njerezve privatisht kur je ne room-in global do t jet default =-1
-	private int currentTabIdUser=-1;
+	private int currentTabIdUser=2;
 
 	public ClientInstance(Client client) {
 		setTitle("FTI-HUB");
+		this.client=client;
 		this.JSON=new ParseMessages();
 		this.Template=new TemplateMessages();
 		boolean connect = client.openConnection();
 		if (!connect) {
+			//Nuk behet do connection me serverin
 			System.err.println("Connection failed!");
-			console("Connection failed!");
 		}
-		createWindow();
-		console("Attempting a connection to " + client.getAddress() + ":" + client.getPort() + ", user: " + client.getName());
-
-		this.users = new OnlineUsers();
+		//this.users = new OnlineUsers();
 		running = true;
 		run = new Thread(this, "Running");
 		run.start();
@@ -160,8 +157,9 @@ public class ClientInstance extends JFrame implements Runnable{
 
 		addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) {
+				System.out.println(client.getId());
 				String disconnect = Template.disconnect(client.getId());
-				send(disconnect);
+				send(disconnect,false);
 				running = false;
 				client.close();
 			}
@@ -175,10 +173,10 @@ public class ClientInstance extends JFrame implements Runnable{
 	public void routeMessage(String text) {
 		if(currentTabIdUser!=-1) { 	//For private chat
 			String privateMessage=Template.privateMessage(currentTabIdUser, client.getId(), text);
-			send(privateMessage);
+			send(privateMessage,true);
 		}else {
 			String globalMesssage=Template.message(text);
-			send(globalMesssage);
+			send(globalMesssage,true);
 		}
 	}
 	
@@ -186,25 +184,45 @@ public class ClientInstance extends JFrame implements Runnable{
 		listen();
 	}
 
-	private void send(String message) {
-		if (message.equals("")) return;
-		
+	private void send(String message,boolean text) {
+		if(text) {
+			if(JSON.parse(message).has("message")){
+				if (JSON.parse(message).getString("message").equals("")) return;
+			}else if(JSON.parse(message).has("private-message")) {
+				if (JSON.parse(message).getString("private-message").equals("")) return;
+			}
+			txtMessage.setText("");
+		}
 		client.send(message.getBytes());
 	}
 	
 	public void listen() {
 		listen = new Thread("Listen") {
 			public void run() {
+				String loginCredentials = Template.loginCredentials(client.getName(), client.getPassword());
+				System.out.println(loginCredentials);
+				client.send(loginCredentials.getBytes());
 				while (running) {
-					String string = client.receive();
+					String string = client.receive().split("/e/")[0];
 					switch(JSON.getTypeOfMessage(string)) {
+					case "login-success":
+						JSONObject parsedMessage = JSON.parse(string);
+						dispose();
+						client.setId(parsedMessage.getInt("id"));
+						createWindow();
+						console("Attempting a connection to " + client.getAddress() + ":" + client.getPort() + ", user: " + client.getName());
+						break;
+					case "login-fail":
+						// Print wrong credentials or send to sign up Tab
+						System.out.println("Wrong username or password!");
+						break;
 					case "global-message":
 						JSONObject message=JSON.parse(string);
 						console(message.getString("message"));
 						break;
 					case "ping":
 						String text=Template.responsePingClient(client.getId());
-						send(text);
+						send(text,false);
 						break;
 					case "private-message":
 						JSONObject privateMessage=JSON.parse(string);
