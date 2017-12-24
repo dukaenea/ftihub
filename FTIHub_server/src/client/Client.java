@@ -14,22 +14,31 @@ public class Client {
 	private DatagramSocket socket;
 
 	private String name, address;
-	private int port;
-	private InetAddress ip;
+	private int hostPort;
+	private InetAddress hostIp;
 	private Thread send;
 	private int id;
-
-	public Client(String name, String address, int port,int id) {
+	private String password;
+	
+	public Client(String name,String password, String address, int port,int id) {
 		this.name = name;
 		this.address = address;
-		this.port = port;
+		this.hostPort = port;
 		this.id=id;
+		this.password=password;
 	}
 
 	public Client(String name, String address, int port) {
 		this.name = name;
 		this.address = address;
-		this.port = port;
+		this.hostPort = port;
+	}
+	
+	public Client(String name,String password, String address, int port) {
+		this.name = name;
+		this.address = address;
+		this.hostPort = port;
+		this.password=password;
 	}
 
 	public void setId(int id) {
@@ -45,13 +54,13 @@ public class Client {
 	}
 
 	public int getPort() {
-		return port;
+		return hostPort;
 	}
 
 	public boolean openConnection() {
 		try {
 			socket = new DatagramSocket();
-			ip = InetAddress.getByName(this.address);
+			hostIp = InetAddress.getByName(this.address);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 			return false;
@@ -77,7 +86,7 @@ public class Client {
 	public void send(final byte[] data) {
 		send = new Thread("Send") {
 			public void run() {
-				DatagramPacket packet = new DatagramPacket(data, data.length, ip, port);
+				DatagramPacket packet = new DatagramPacket(data, data.length, hostIp, hostPort);
 				try {
 					socket.send(packet);
 				} catch (IOException e) {
@@ -100,5 +109,13 @@ public class Client {
 
 	public int getId() {
 		return id;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
 	}
 }
