@@ -17,12 +17,13 @@ import java.util.Scanner;
 import org.json.JSONObject;
 
 import database.DBConnection;
+import database.DBQuery;
 import messageTemplate.ParseMessages;
-import messageTemplate.TemplateMessages;
+import messageTemplate.TemplateMessagesServer;
 
-public class Server implements Runnable{
+public class Server implements Runnable {
 
-	private HashMap<Integer,ServerClient> allClients= new HashMap<Integer,ServerClient>();
+	private HashMap<Integer, ServerClient> allClients = new HashMap<Integer, ServerClient>();
 	private List<Integer> clientResponse = new ArrayList<Integer>();
 
 	private DatagramSocket socket;
@@ -32,15 +33,14 @@ public class Server implements Runnable{
 	private final int MAX_ATTEMPTS = 5;
 
 	private boolean raw = false;
-	
+
 	private ParseMessages JSON;
-	private TemplateMessages Template;
-	
-	
+	private TemplateMessagesServer Template;
+
 	public Server(int port) {
 		this.port = port;
-		this.JSON=new ParseMessages();
-		this.Template=new TemplateMessages();
+		this.JSON = new ParseMessages();
+		this.Template = new TemplateMessagesServer();
 		try {
 			socket = new DatagramSocket(port);
 		} catch (SocketException e) {
@@ -49,42 +49,38 @@ public class Server implements Runnable{
 		}
 		new Thread() {
 			public void run() {
-		if(allClients.isEmpty()) {
-				try {
-					getAllClients();
-				} catch (SQLException e) {
-					e.printStackTrace();
+				if (allClients.isEmpty()) {
+						getAllClients();
 				}
 			}
-		 }
 		}.start();
 		run = new Thread(this, "Server");
 		run.start();
 	}
-	private void getAllClients() throws SQLException {
-		try(
-				Connection con=DBConnection.getConnection();
-				
-				PreparedStatement ps=con.prepareStatement(
-						"select id,username,password from t_users"
-						,ResultSet.TYPE_SCROLL_INSENSITIVE
-						,ResultSet.CONCUR_READ_ONLY);
 
-				) 
-				{
+	private void getAllClients() {
+		try (Connection con = DBConnection.getConnection();
 
-					 try (ResultSet rs = ps.executeQuery()) {
-						
-						 while(rs.next()) {
-							 int id=rs.getInt("id");
-							 allClients.put(id,new ServerClient(rs.getString("username"),rs.getString("password"),id));
-						 	}
-						   
-					    } // try
-					} // try
+				PreparedStatement ps = con.prepareStatement("select id,username,password from t_users",
+						ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+
+		) {
+
+			try (ResultSet rs = ps.executeQuery()) {
+
+				while (rs.next()) {
+					int id = rs.getInt("id");
+					allClients.put(id, new ServerClient(rs.getString("username"), rs.getString("password"), id));
+				}
+
+			} // try
+		} // try
+		catch (SQLException e) {
+
+			e.printStackTrace();
+		}
 	}
-	
-	
+
 	public void run() {
 		running = true;
 		System.out.println("Server started on port " + port);
@@ -95,20 +91,22 @@ public class Server implements Runnable{
 			System.out.println(allClients.size());
 			String text = scanner.nextLine();
 			if (!text.startsWith("/")) {
-				String serverMessage=Template.serverMessage(text);
+				String serverMessage = Template.serverMessage(text);
 				sendToAll(serverMessage);
 				continue;
 			}
 			text = text.substring(1);
 			if (text.equals("raw")) {
-				if (raw) System.out.println("Raw mode off.");
-				else System.out.println("Raw mode on.");
+				if (raw)
+					System.out.println("Raw mode off.");
+				else
+					System.out.println("Raw mode on.");
 				raw = !raw;
 			} else if (text.equals("clients")) {
 				System.out.println("Clients:");
 				System.out.println("========");
 				for (ServerClient c : allClients.values()) {
-					if(c.online)
+					if (c.online)
 						System.out.println(c.name + "(" + c.getID() + "): " + c.address.toString() + ":" + c.port);
 				}
 				System.out.println("========");
@@ -123,24 +121,26 @@ public class Server implements Runnable{
 				}
 				if (number) {
 					boolean exists = false;
-					
-					ServerClient c=allClients.get(id);
-					
-					if(c!=null) {
-						exists=true;
+
+					ServerClient c = allClients.get(id);
+
+					if (c != null) {
+						exists = true;
 					}
-					if (exists) disconnect(id, true);
-					else System.out.println("Client " + id + " doesn't exist! Check ID number.");
+					if (exists)
+						disconnect(id, true);
+					else
+						System.out.println("Client " + id + " doesn't exist! Check ID number.");
 				} else {
 					for (ServerClient c : allClients.values()) {
-						if(c.online) {
+						if (c.online) {
 							if (name.equals(c.name)) {
 								disconnect(c.getID(), true);
 								break;
 							}
 						}
 					}
-					
+
 				}
 			} else if (text.equals("help")) {
 				printHelp();
@@ -168,16 +168,16 @@ public class Server implements Runnable{
 		manage = new Thread("Manage") {
 			public void run() {
 				while (running) {
-					String ping=Template.ping();
+					String ping = Template.ping();
 					sendToAll(ping);
-					//sendStatus();
+					// sendStatus();
 					try {
 						Thread.sleep(2000);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
 					for (ServerClient c : allClients.values()) {
-						if(c.online) {
+						if (c.online) {
 							if (!clientResponse.contains(c.getID())) {
 								if (c.attempt >= MAX_ATTEMPTS) {
 									disconnect(c.getID(), false);
@@ -198,16 +198,16 @@ public class Server implements Runnable{
 	}
 
 	private void sendStatus() {
-		//if (clients.size() <= 0) return;
-		StringBuilder users =new StringBuilder();
+		// if (clients.size() <= 0) return;
+		StringBuilder users = new StringBuilder();
 		users.append("/u/");
 		for (ServerClient c : allClients.values()) {
-			if(c.online)
+			if (c.online)
 				users.append(c.name + "/n/");
 		}
 
 		users.append("/e/");
-		
+
 		sendToAll(users.toString());
 	}
 
@@ -232,21 +232,17 @@ public class Server implements Runnable{
 
 	private void printMap() {
 		for (ServerClient c : allClients.values()) {
-			//if(c.online) {
-				System.out.println(c.name+" :"+c.online+" :"+c.password);
-		//	}
-	   }
+			// if(c.online) {
+			System.out.println(c.name + " :" + c.online + " :" + c.password);
+			// }
+		}
 	}
-	
+
 	private void sendToAll(String message) {
-//		if (message.startsWith("/m/")) {
-//			String text = message.substring(3);
-//			text = text.split("/e/")[0];
-//			System.out.println(message);
-//		}
+
 		for (ServerClient c : allClients.values()) {
-			if(c.online) {
-				
+			if (c.online) {
+
 				send(message.getBytes(), c.address, c.port);
 			}
 		}
@@ -266,41 +262,6 @@ public class Server implements Runnable{
 		};
 		send.start();
 	}
-	private int validateCredentials(String username,String password) throws Exception{
-		try(
-				Connection con=DBConnection.getConnection();
-				
-				PreparedStatement ps=con.prepareStatement(
-						"select id from t_users where username=? and password=?"
-						,ResultSet.TYPE_SCROLL_INSENSITIVE
-						,ResultSet.CONCUR_READ_ONLY);
-
-				) 
-				{
-					ps.setString(1, username);
-					ps.setString(2, password);
-					 int id=0;
-					 int rowCount=0;
-					 try (ResultSet rs = ps.executeQuery()) {
-						 
-						
-						 while(rs.next()) {
-						  
-						  rowCount++;
-					      id = rs.getInt("id");
-					      
-						 }
-						 
-					     if(rowCount==1) {
-					    	 return id;
-					     }
-					         
-					    } // try
-					} // try
-		
-		return -1;
-	}
-
 
 	private void process(DatagramPacket packet) {
 		String string = new String(packet.getData()).split("/e/")[0];
@@ -319,12 +280,14 @@ public class Server implements Runnable{
 					c.online=true;
 					success=true;
 					send(Template.loginSuccess(c.getID()).getBytes(), c.address, c.port);	
+					send(Template.allUsers(c.getID(),allClients).getBytes(),c.address,c.port);
 					break;
 				}
 					
 			}
-			if(!success) 
-				send(Template.loginFail().getBytes(), packet.getAddress(), packet.getPort());	
+			if(!success) { 
+				send(Template.loginFail().getBytes(), packet.getAddress(), packet.getPort());
+			}
 			break;
 		case "global-message":
 			sendToAll(string);
@@ -337,57 +300,41 @@ public class Server implements Runnable{
 			JSONObject ping=JSON.parse(string);
 			clientResponse.add(ping.getInt("id"));
 			break;
+		case "change-chat-tab":
+			JSONObject newTab=JSON.parse(string);
+			prepareNewTab(newTab.getInt("idOfUserTab"),newTab.getInt("idOfSender"));
+			break;
 		case "private-message":
 			JSONObject privateMessage=JSON.parse(string);
 		    int idOfReceiver=privateMessage.getInt("idOfReceiver");
 		    int idOfSender=privateMessage.getInt("idOfSender");
 		    String pm = Template.preparePrivateMessageFromServer(idOfSender,privateMessage.getString("privateMessage"));
 			ServerClient c=allClients.get(idOfReceiver);
+			DBQuery db=new DBQuery();
 			if(c.online) {
-			send(pm.getBytes(), c.address, c.port);
+				db.insertChatHistoryOnline(idOfSender, idOfReceiver, privateMessage.getString("privateMessage"));
+				send(pm.getBytes(), c.address, c.port);
 			}else {
-				//Add to db as unread because he was offline when the message
-				//was send
+				//Add to db as unread because he was offline when the message was send
+				db.insertChatHistoryOffline(idOfSender, idOfReceiver, privateMessage.getString("privateMessage"));
 			}
 			break;
 		default:
 			System.out.println(string);
 			break;
 		}
-//		if (string.startsWith("/c/")) {
-//			
-//			String name = string.split("/c/|/e/")[1].split(" ")[0];
-//			int id = Integer.parseInt(string.split("/c/|/e/")[1].split(" ")[1]);
-//			System.out.println(name + "(" + id + ") connected!");
-//			ServerClient c=allClients.get(id);
-//			c.address=packet.getAddress();
-//			c.port=packet.getPort();
-//			c.online=true;
-//			
-//		} else if (string.startsWith("/m/")) {
-//			sendToAll(string);
-//		} else if (string.startsWith("/d/")) {
-//			String id = string.split("/d/|/e/")[1];
-//			disconnect(Integer.parseInt(id), true);
-//		} else if (string.startsWith("/i/")) {
-//			clientResponse.add(Integer.parseInt(string.split("/i/|/e/")[1]));
-//		} else if(string.startsWith("/p/")) {
-//			
-//				String[] strSplit=string.split("/p/|/s/|/m/");
-//		        int idOfReceiver=Integer.parseInt(strSplit[1]);
-//		        int idOfSender=Integer.parseInt(strSplit[2]);
-//		        String privateMessage="/p/"+idOfSender+"/m/"+strSplit[3];
-//		        ServerClient c=allClients.get(idOfReceiver);
-//		        if(c.online) {
-//		        	send(privateMessage.getBytes(), c.address, c.port);
-//		        }else {
-//		        	//Add to db as unread
-//		        }
-//		} else {
-//			System.out.println(string);
-//		}
 	}
 
+	private void prepareNewTab(int idTab,int idSender) {
+		//TODO: Make new Thread
+		DBQuery db=new DBQuery();
+		String chatHistory=db.changeChatTab(idTab, idSender);
+		ServerClient c=allClients.get(idTab);
+		send(Template.stringify(chatHistory).getBytes(), c.address, c.port);
+		db.updateChatHistory(idTab, idSender);
+		
+	}
+	
 	private void quit() {
 		for (Integer key : allClients.keySet()) {
 			disconnect(key, true);
@@ -400,17 +347,20 @@ public class Server implements Runnable{
 	private void disconnect(int id, boolean status) {
 		ServerClient c = allClients.get(id);
 		boolean exists = false;
-		if(c!=null){
-			c.online=false;
+		if (c != null) {
+			c.online = false;
 			exists = true;
 		}
-		
-		if (!exists) return;
+
+		if (!exists)
+			return;
 		String message = "";
 		if (status) {
-			message = "Client " + c.name + " (" + c.getID() + ") @ " + c.address.toString() + ":" + c.port + " disconnected.";
+			message = "Client " + c.name + " (" + c.getID() + ") @ " + c.address.toString() + ":" + c.port
+					+ " disconnected.";
 		} else {
-			message = "Client " + c.name + " (" + c.getID() + ") @ " + c.address.toString() + ":" + c.port + " timed out.";
+			message = "Client " + c.name + " (" + c.getID() + ") @ " + c.address.toString() + ":" + c.port
+					+ " timed out.";
 		}
 		System.out.println(message);
 	}

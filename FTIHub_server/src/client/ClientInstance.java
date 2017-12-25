@@ -26,7 +26,7 @@ import javax.swing.text.DefaultCaret;
 import org.json.JSONObject;
 
 import messageTemplate.ParseMessages;
-import messageTemplate.TemplateMessages;
+import messageTemplate.TemplateMessagesClient;
 
 
 public class ClientInstance extends JFrame implements Runnable{
@@ -49,7 +49,7 @@ public class ClientInstance extends JFrame implements Runnable{
 	private OnlineUsers users;
 	
 	private ParseMessages JSON;
-	private TemplateMessages Template;
+	private TemplateMessagesClient Template;
 	//Kjo do te ndryshoje kur ndryshon tabe per ti folur njerezve privatisht kur je ne room-in global do t jet default =-1
 	private int currentTabIdUser=2;
 
@@ -57,7 +57,7 @@ public class ClientInstance extends JFrame implements Runnable{
 		setTitle("FTI-HUB");
 		this.client=client;
 		this.JSON=new ParseMessages();
-		this.Template=new TemplateMessages();
+		this.Template=new TemplateMessagesClient();
 		boolean connect = client.openConnection();
 		if (!connect) {
 			//Nuk behet do connection me serverin
@@ -180,6 +180,11 @@ public class ClientInstance extends JFrame implements Runnable{
 		}
 	}
 	
+	public void handleChatTabChange() {
+		//currentTabIdUser=InputTypeHidden TODO
+		client.send(Template.changeChatTab(currentTabIdUser,client.getId()).getBytes());
+	}
+	
 	public void run() {
 		listen();
 	}
@@ -199,9 +204,7 @@ public class ClientInstance extends JFrame implements Runnable{
 	public void listen() {
 		listen = new Thread("Listen") {
 			public void run() {
-				String loginCredentials = Template.loginCredentials(client.getName(), client.getPassword());
-				System.out.println(loginCredentials);
-				client.send(loginCredentials.getBytes());
+				client.send(Template.loginCredentials(client.getName(), client.getPassword()).getBytes());
 				while (running) {
 					String string = client.receive().split("/e/")[0];
 					switch(JSON.getTypeOfMessage(string)) {
@@ -216,6 +219,10 @@ public class ClientInstance extends JFrame implements Runnable{
 						// Print wrong credentials or send to sign up Tab
 						System.out.println("Wrong username or password!");
 						break;
+					case "all-users":
+						//JSONObject message=JSON.parse(string);
+						console(string);
+						break;	
 					case "global-message":
 						JSONObject message=JSON.parse(string);
 						console(message.getString("message"));
@@ -235,26 +242,6 @@ public class ClientInstance extends JFrame implements Runnable{
 						break;
 					}	
 					
-					//TODO:PER ONLINE USERS
-					
-//					if (string.startsWith("/c/")) {
-//						console("Successfully connected to server! ID: " + client.getId());
-//					} else if (string.startsWith("/m/")) {
-//						String text = string.substring(3);
-//						text = text.split("/e/")[0];
-//						console(text);
-//					} else if (string.startsWith("/i/")) {
-//						String text = "/i/" + client.getId() + "/e/";
-//						send(text, false);
-//					} else if (string.startsWith("/u/")) {
-//						String[] u = string.split("/u/|/n/|/e/");
-//						users.update(Arrays.copyOfRange(u, 1, u.length - 1));
-//					} else if (string.startsWith("/p/")) {
-//						String[] strSplit=string.split("/p/|/m/");
-//				        int idOfSender=Integer.parseInt(strSplit[1]);
-//				        String privateMessage=strSplit[2].split("/e/")[0];
-//				        console("PrivateMessage from "+idOfSender+" to "+client.getName()+": "+privateMessage);
-//					}
 				}
 			}
 		};

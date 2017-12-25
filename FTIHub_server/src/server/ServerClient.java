@@ -9,7 +9,7 @@ public class ServerClient {
 	public int port;
 	private final int ID;
 	public int attempt = 0;
-	boolean online;
+	public boolean online;
 	public String password;
 	
 	public ServerClient(String name,String password,int id) {
