@@ -125,7 +125,8 @@ public class ClientInstance extends JFrame implements Runnable{
 		txtMessage.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent e) {
 				if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-					routeMessage(txtMessage.getText());
+					//routeMessage(txtMessage.getText());
+					handleChatTabChange();
 				}
 			}
 		});
@@ -182,6 +183,7 @@ public class ClientInstance extends JFrame implements Runnable{
 	
 	public void handleChatTabChange() {
 		//currentTabIdUser=InputTypeHidden TODO
+
 		client.send(Template.changeChatTab(currentTabIdUser,client.getId()).getBytes());
 	}
 	
@@ -230,6 +232,9 @@ public class ClientInstance extends JFrame implements Runnable{
 					case "ping":
 						String text=Template.responsePingClient(client.getId());
 						send(text,false);
+						break;
+					case "new-tab":
+						console("Changed tab"+string);
 						break;
 					case "private-message":
 						JSONObject privateMessage=JSON.parse(string);

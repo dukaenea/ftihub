@@ -329,7 +329,8 @@ public class Server implements Runnable {
 		//TODO: Make new Thread
 		DBQuery db=new DBQuery();
 		String chatHistory=db.changeChatTab(idTab, idSender);
-		ServerClient c=allClients.get(idTab);
+		System.out.println(chatHistory);
+		ServerClient c=allClients.get(idSender);
 		send(Template.stringify(chatHistory).getBytes(), c.address, c.port);
 		db.updateChatHistory(idTab, idSender);
 		

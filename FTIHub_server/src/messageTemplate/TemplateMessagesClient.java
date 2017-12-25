@@ -24,6 +24,6 @@ public class TemplateMessagesClient extends TemplateMessages {
 	}
 
 	public String changeChatTab(int idOfTab,int idOfSender) {
-		return stringify(type("change-chat-tab") + ",\"idOfUserTab\": \"" + idOfTab + "\",\"idOfSender\":'\""+idOfSender+"\"}");
+		return stringify(type("change-chat-tab") + ",\"idOfUserTab\": \"" + idOfTab + "\",\"idOfSender\":\""+idOfSender+"\"}");
 	}
 }

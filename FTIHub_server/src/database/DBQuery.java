@@ -87,7 +87,7 @@ public class DBQuery {
 						    String message = rs.getString("message");
 						    boolean online= rs.getBoolean("online");
 						    if(!online) nrNotification++;
-						    s.append("{\"online\":\""+Boolean.toString(online)+"\",\"message\":\""+message+"\"}");
+						    s.append("{\"online\":\""+Boolean.toString(online)+"\",\"message\":\""+message+"\"},");
 						    nrMessages++; 
 						 }
 						 s.setLength(s.length() - 1);
